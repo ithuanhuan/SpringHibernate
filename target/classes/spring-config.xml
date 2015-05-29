@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!-- 定义数据源 Bean, 使用 C3P0 数据源实现 -->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource"
+          destroy-method="close">
+        <!-- 指定链接数据库的驱动-->
+        <property name="driverClass" value="com.mysql.jdbc.Driver"/>
+
+        <!-- 指定链接数据库的 url -->
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/stest?useUnicode=true&amp;characterEncoding=utf8"/>
+        <!-- 指定链接数据库的用户名 -->
+        <property name="user" value="root"/>
+        <!-- 指定链接数据库的密码 -->
+        <!--<property name="password" value="0000"/>-->
+
+        <!-- sae 建议 -->
+        <property name="idleConnectionTestPeriod" value="10"/>
+        <!-- 指定链接数据库连接池的最大空闲时间 -->
+        <property name="maxIdleTime" value="10"/>
+    </bean>
+
+    <!-- 定义 Hibernate 的 SessionFactory -->
+    <bean id="sessionFactory"
+          class="org.springframework.orm.hibernate4.LocalSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="mappingResources">
+            <list>
+                <!-- 以下列出所有的 PO 映射文件 -->
+                <!--<value>com/xiayule/getll/db/model/MobileAccount.hbm.xml</value>-->
+                <value>net/xiayule/springhibernate/model/person.hbm.xml</value>
+                <value>net/xiayule/springhibernate/model/cookie.hbm.xml</value>
+            </list>
+        </property>
+        <property name="hibernateProperties">
+            <!-- 设置 Hibernate 属性 -->
+            <value>
+                hibernate.dialect=org.hibernate.dialect.MySQLDialect
+                hibernate.hbm2ddl.auto=update
+            </value>
+        </property>
+    </bean>
+
+    <!-- 配置 Hibernate 的局部事务管理器，使用 HibernateTransactionManager 类 -->
+    <!-- 该类实现 PlatformTransactionManager 接口，是针对 Hibernate 的特定实现 -->
+    <bean id="transactionManager" class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+        <!-- 配置 HibernateTransactionManager 时需要注入 SessionFactory 的引用 -->
+        <property name="sessionFactory" ref="sessionFactory"/>
+    </bean>
+
+    <!-- 配置事务增强处理 Bean，指定事务管理器 -->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <!-- 用于配置详细的事务语义 -->
+        <tx:attributes>
+            <!-- 所有以 'get' 开头的方法是 read-only 的 -->
+            <tx:method name="get*" read-only="true"/>
+            <!-- 其他方法使用默认的事务配置 -->
+            <tx:method name="*"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <aop:config>
+        <!-- 配置一个切入点 -->
+        <aop:pointcut id="ajaxPointcut"
+                      expression="bean(personDao) || bean(cookieDao)"/>
+        <!-- 指定在 leePointcut 切入点应用 txAdvice 事务增强处理 -->
+        <aop:advisor advice-ref="txAdvice"
+                     pointcut-ref="ajaxPointcut"/>
+    </aop:config>
+
+    <bean id="personDao" class="net.xiayule.springhibernate.dao.PersonDao">
+        <property name="sessionFactory" ref="sessionFactory"/>
+    </bean>
+
+    <bean id="cookieDao" class="net.xiayule.springhibernate.dao.CookieDao">
+        <property name="sessionFactory" ref="sessionFactory"/>
+    </bean>
+
+</beans>
